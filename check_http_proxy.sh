@@ -1,44 +1,36 @@
 #!/bin/bash
-
-# Author: scott.liao
-# Description: Icinga2 HTTP/HTTPS check via wget (with/without Proxy)
+# Author: ozzi- , forked from scott.liao (https://github.com/shazi7804/icinga-check-http-proxy)
+# Description: ICINGA2 http check with proxy support
 
 # startup checks
 if [ -z "$BASH" ]; then
   echo "Please use BASH."
   exit 3
 fi
-
-# bash builtin
 if [ ! -e "/usr/bin/which" ]; then
   echo "/usr/bin/which is missing."
   exit 3
 fi
-
-# Wget
 wget=$(which wget)
 if [ $? -ne 0 ]; then
   echo "Please install wget."
   exit 3
 fi
 
-# Variables
-version=0.3
-wget=$(which wget)
+# Default Values
 ssl=""
-fake=""
+useragent=""
 host=""
 port=""
 proxy=""
 url="/"
 times=1
-timeout=10
-warning=500
+timeout=8
+warning=700
 critical=2000
 certificate=""
 bindaddress=""
 
-#functions
 #set system proxy from environment
 getProxy() {
   if [ -z "$1" ]; then
@@ -55,13 +47,13 @@ usage() {
   -p PORT        port to check (default: 80)
   -u URL         url path (default: /)
   -H HOSTNAME    destination Hostname
-  -f             use fake agent (Windows10/Chrome59)
+  -a USERAGENT   set user agent
   -s             use SSL via HTTPS (default: 443)
   -P PROXY       proxy access (hostname:port)
-  -w WARNING     warning threshold in milliseconds (default: 500)
+  -w WARNING     warning threshold in milliseconds (default: 700)
   -c CRITICAL    critical threshold in milliseconds (default: 2000)
   -n TRIES       number of times to try (default: 1)
-  -t TIMEOUT     amount of time to wait in seconds (default: 10)
+  -t TIMEOUT     amount of time to wait in seconds (default: 8)
   -C CERTIFICATE client certificate stored in file location (PEM AND DER file types allowed)
   -b IP          bind ip address used by wget (default: primary system address)'''
 }
@@ -80,21 +72,18 @@ checkTime() {
 # Return code value
 getStatus() {
   if [ $1 -gt $critical ]; then
-    retcode=2
+    return 2
   elif [ $1 -gt $warning ]; then
-    retcode=1
+    return 1
   else
-    retcode=0
+    return 0
   fi
 }
 
 #main
 #get options
-while getopts "w:c:p:sfu:P:n:t:C:b:H:" opt; do
+while getopts "c:p:s:a:w:u:P:H:n:t:C:b:" opt; do
   case $opt in
-    w)
-      warning=$OPTARG
-      ;;
     c)
       critical=$OPTARG
       ;;
@@ -104,8 +93,11 @@ while getopts "w:c:p:sfu:P:n:t:C:b:H:" opt; do
     s)
       ssl=1
       ;;
-    f)
-      fake=1
+    a)
+      useragent=$OPTARG
+      ;;
+    w)
+      warning=$OPTARG
       ;;
     u)
       url=$OPTARG
@@ -168,46 +160,43 @@ else
   url="${url_prefix}${host}:${port}${url}"
 fi
 
-#check fake user agent
-if [ -z "$fake" ] && [ -z "$client_certificate" ]; then
-  #execute and capture execution time and return status of wget
-  start=$(echo $(($(date +%s%N)/1000000)))
-  $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url
-  status=$?
-  end=$(echo $(($(date +%s%N)/1000000)))
-elif [ -z "$fake" ] && [ -n "$client_certificate" ]; then
-  #execute and capture execution time and return status of wget with client certificate
-  start=$(echo $(($(date +%s%N)/1000000)))
-  $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url
-  status=$?
-  end=$(echo $(($(date +%s%N)/1000000)))
-elif [ -n "$fake" ] && [ -n "$client_certificate" ]; then
-  #execute with fake user agent and capture execution time and return status of wget with client certificate
-  start=$(echo $(($(date +%s%N)/1000000)))
-  $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
-  --header="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36" \
-  --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
-  --header="Accept-Language: en-us,en;q=0.5" \
-  --header="Accept-Encoding: gzip, deflate"
-  status=$?
-  end=$(echo $(($(date +%s%N)/1000000)))
+start=$(echo $(($(date +%s%N)/1000000)))
+
+if [ -z "$useragent" ]; then
+  if [ -z "$client_certificate" ]; then
+    #execute and capture execution time and return status of wget
+    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url
+    status=$?
+  elif [ -n "$client_certificate" ]; then
+    #execute and capture execution time and return status of wget with client certificate
+    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url
+    status=$?
+  fi
 else
-  #execute with fake user agent and capture execution time and return status of wget
-  start=$(echo $(($(date +%s%N)/1000000)))
-  $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url \
-  --header="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36" \
-  --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
-  --header="Accept-Language: en-us,en;q=0.5" \
-  --header="Accept-Encoding: gzip, deflate"
-  status=$?
-  end=$(echo $(($(date +%s%N)/1000000)))
+  if [ -n "$client_certificate" ]; then
+    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
+    --header="User-Agent: $useragent" \
+    --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
+    --header="Accept-Language: en-us,en;q=0.5" \
+    --header="Accept-Encoding: gzip, deflate"
+    status=$?
+  else
+    #execute with fake user agent and capture execution time and return status of wget
+    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url \
+    --header="User-Agent: $useragent" \
+    --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
+    --header="Accept-Language: en-us,en;q=0.5" \
+    --header="Accept-Encoding: gzip, deflate"
+    status=$?
+  fi
 fi
+end=$(echo $(($(date +%s%N)/1000000)))
 
 #decide output by return code
 if [ $status -eq 0 ] ; then
   echo "${header} $(checkTime $((end - start))): $((end - start))ms - ${url}|time=$((end - start))ms;${warning};${critical};0;"
   getStatus $((end - start))
-  exit $retcode
+  exit $?
 else
   case $status in
     1)
