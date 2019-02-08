@@ -1,29 +1,27 @@
-# Icinga check_http_proxy
+# Icinga2 check_http_proxy
 
-Check a HTTP/HTTPS endpoint using a proxy.
+Check a HTTP/HTTPS endpoint using a proxy and wget.
 
-## How To Usage
+## Usage
 
-The simple usage is
 ```
-check_http_proxy -P proxy:port -H hostname
+check_http_proxy.sh -P proxy:port -H hostname
 ```
 
-
-More parameters
+More parameters are available:
 ```
 Usage: check_http_proxy [OPTIONS]
   [OPTIONS]:
   -p PORT        port to check (default: 80)
   -u URL         url path (default: /)
   -H HOSTNAME    destination Hostname
-  -f             use fake agent (Windows10/Chrome59)
+  -a USERAGENT   set user agent
   -s             use SSL via HTTPS (default: 443)
   -P PROXY       proxy access (hostname:port)
-  -w WARNING     warning threshold in milliseconds (default: 500)
+  -w WARNING     warning threshold in milliseconds (default: 700)
   -c CRITICAL    critical threshold in milliseconds (default: 2000)
   -n TRIES       number of times to try (default: 1)
-  -t TIMEOUT     amount of time to wait in seconds (default: 10)
+  -t TIMEOUT     amount of time to wait in seconds (default: 8)
   -C CERTIFICATE client certificate stored in file location (PEM AND DER file types allowed)
   -b IP          bind ip address used by wget (default: primary system address)
 ```
