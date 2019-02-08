@@ -1,8 +1,10 @@
 # Icinga2 check_http_proxy
 
-Check a HTTP/HTTPS endpoint using a proxy and wget.
+Monitor a HTTP/HTTPS endpoint using a proxy (powered by wget).
 
 ## Usage
+
+### Manually
 
 ```
 check_http_proxy.sh -P proxy:port -H hostname
@@ -26,3 +28,9 @@ Usage: check_http_proxy [OPTIONS]
   -b IP          bind ip address used by wget (default: primary system address)
 ```
 
+### Icinga
+Use the following Icinga2 CheckCommand:
+https://github.com/ozzi-/icinga-check-http-proxy/blob/master/commands.conf
+
+An example of monitoring a host is shown in:
+https://github.com/ozzi-/icinga-check-http-proxy/blob/master/hosts.conf
