@@ -194,7 +194,8 @@ end=$(echo $(($(date +%s%N)/1000000)))
 
 #decide output by return code
 if [ $status -eq 0 ] ; then
-  echo "${header} $(checkTime $((end - start))): $((end - start))ms - ${url}|time=$((end - start))ms;${warning};${critical};0;"
+  timeoutms=$(($timeout * 1000))
+  echo "${header} $(checkTime $((end - start))): $((end - start))ms - ${url}|time=$((end - start))ms;${warning};${critical};0;$timeoutms"
   getStatus $((end - start))
   exit $?
 else
