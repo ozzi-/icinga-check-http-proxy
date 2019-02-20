@@ -178,7 +178,7 @@ if [ -z "$useragent" ]; then
   fi
 else
   if [ -n "$client_certificate" ]; then
-    body="`$wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
+    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
     --header=\"User-Agent: $useragent\" \
     --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
     --header=\"Accept-Language: en-us,en;q=0.5\" \
@@ -186,7 +186,7 @@ else
     status=$?
   else
     #execute with fake user agent and capture execution time and return status of wget
-    body="`$wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url \
+    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url \
     --header=\"User-Agent: $useragent\" \
     --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
     --header=\"Accept-Language: en-us,en;q=0.5\" \
