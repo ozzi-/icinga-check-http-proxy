@@ -169,31 +169,24 @@ start=$(echo $(($(date +%s%N)/1000000)))
 if [ -z "$useragent" ]; then
   if [ -z "$client_certificate" ]; then
     #execute and capture execution time and return status of wget
-    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url`"
+    body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url)
     status=$?
   elif [ -n "$client_certificate" ]; then
     #execute and capture execution time and return status of wget with client certificate
-    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url`"
+    body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url)
     status=$?
   fi
 else
   if [ -n "$client_certificate" ]; then
-    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
-    --header=\"User-Agent: $useragent\" \
-    --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
-    --header=\"Accept-Language: en-us,en;q=0.5\" \
-    --header=\"Accept-Encoding: gzip, deflate"`"
+    body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url --header="User-Agent: $useragent")
     status=$?
   else
     #execute with fake user agent and capture execution time and return status of wget
-    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url \
-    --header=\"User-Agent: $useragent\" \
-    --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
-    --header=\"Accept-Language: en-us,en;q=0.5\" \
-    --header=\"Accept-Encoding: gzip, deflate\"`"
+    body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url --header="User-Agent: $useragent")
     status=$?
   fi
 fi
+
 end=$(echo $(($(date +%s%N)/1000000)))
 
 #decide output by return code
