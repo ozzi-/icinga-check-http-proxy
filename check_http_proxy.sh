@@ -25,7 +25,7 @@ port=""
 proxy=""
 url="/"
 times=1
-timeout=5
+timeout=8
 warning=700
 critical=2000
 certificate=""
@@ -44,18 +44,19 @@ getProxy() {
 usage() {
   echo '''Usage: check_http_proxy [OPTIONS]
   [OPTIONS]:
-  -p PORT        Port to connect to (default: 80)
-  -u URL         URL path (default: /)
-  -H HOSTNAME    Destination Hostname
-  -a USERAGENT   Sends a useragent and mimics other request headers of a browser
-  -s             Use HTTPS proxy (default connecting to proxy via http)
-  -P PROXY       Sets the proxy ip:port (i.e. 127.0.0.1:8840)
-  -w WARNING     warning threshold in milliseconds (default: 700)
-  -c CRITICAL    Critical threshold in milliseconds (default: 2000)
-  -n TRIES       Number of connection attempts (default: 1)
-  -t TIMEOUT     Seconds to wait for connection (timeout) (default: 5)
-  -C CERTIFICATE Path to a client certificate (PEM and DER file types supported)
-  -b IP          Bind address for wget (default: IP of primary networking interface)'''
+  -p PORT           Port to check (default: 80)
+  -u URL            URL path (default: /)
+  -H HOSTNAME       Destination Hostname
+  -a USERAGENT      Set user agent
+  -s                Use SSL via HTTPS (default: 443)
+  -B BODY CONTAINS  If not contained in response body, CRITICAL will be returned
+  -P PROXY          Proxy access (hostname:port)
+  -w WARNING        Warning threshold in milliseconds (default: 700)
+  -c CRITICAL       Critical threshold in milliseconds (default: 2000)
+  -n TRIES          Number of times to try (default: 1)
+  -t TIMEOUT        Amount of time to wait in seconds (default: 8)
+  -C CERTIFICATE    Client certificate stored in file location (PEM AND DER file types allowed)
+  -b IP             Bind ip address used by wget (default: primary system address)'''
 }
 
 # Check which threshold was reached
@@ -82,7 +83,7 @@ getStatus() {
 
 #main
 #get options
-while getopts "c:p:s:a:w:u:P:H:n:t:C:b:" opt; do
+while getopts "c:p:s:a:w:u:P:H:n:t:C:b:B:" opt; do
   case $opt in
     c)
       critical=$OPTARG
@@ -119,6 +120,9 @@ while getopts "c:p:s:a:w:u:P:H:n:t:C:b:" opt; do
       ;;
     b)
       bindaddress=$OPTARG
+      ;;
+    B)
+      bodycontains=$OPTARG
       ;;
     *)
       usage
@@ -165,28 +169,28 @@ start=$(echo $(($(date +%s%N)/1000000)))
 if [ -z "$useragent" ]; then
   if [ -z "$client_certificate" ]; then
     #execute and capture execution time and return status of wget
-    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url
+    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url`"
     status=$?
   elif [ -n "$client_certificate" ]; then
     #execute and capture execution time and return status of wget with client certificate
-    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url
+    body="`$wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url`"
     status=$?
   fi
 else
   if [ -n "$client_certificate" ]; then
-    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
-    --header="User-Agent: $useragent" \
-    --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
-    --header="Accept-Language: en-us,en;q=0.5" \
-    --header="Accept-Encoding: gzip, deflate"
+    body="`$wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url \
+    --header=\"User-Agent: $useragent\" \
+    --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
+    --header=\"Accept-Language: en-us,en;q=0.5\" \
+    --header=\"Accept-Encoding: gzip, deflate"`"
     status=$?
   else
     #execute with fake user agent and capture execution time and return status of wget
-    $wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url \
-    --header="User-Agent: $useragent" \
-    --header="Accept: image/png,image/*;q=0.8,*/*;q=0.5" \
-    --header="Accept-Language: en-us,en;q=0.5" \
-    --header="Accept-Encoding: gzip, deflate"
+    body="`$wget -t $times --timeout $timeout -O /dev/null -q -e $proxy_cmd --bind-address=${bindaddress} $url \
+    --header=\"User-Agent: $useragent\" \
+    --header=\"Accept: image/png,image/*;q=0.8,*/*;q=0.5\" \
+    --header=\"Accept-Language: en-us,en;q=0.5\" \
+    --header=\"Accept-Encoding: gzip, deflate\"`"
     status=$?
   fi
 fi
@@ -195,6 +199,12 @@ end=$(echo $(($(date +%s%N)/1000000)))
 #decide output by return code
 if [ $status -eq 0 ] ; then
   timeoutms=$(($timeout * 1000))
+  if [ -n "$bodycontains" ]; then
+    if [[ ! $body == *$bodycontains* ]]; then
+      echo "${header} NOK: body does not contain '${bodycontains}'|time=$((end - start))ms;${warning};${critical};0;$timeoutms"
+      exit 2
+    fi
+  fi
   echo "${header} $(checkTime $((end - start))): $((end - start))ms - ${url}|time=$((end - start))ms;${warning};${critical};0;$timeoutms"
   getStatus $((end - start))
   exit $?
