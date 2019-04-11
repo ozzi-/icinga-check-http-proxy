@@ -197,7 +197,6 @@ doCheck
 
 #decide to rerun if bodynotcontains is contained
 if [ $status -eq 0 ] && [ -n "$bodynotcontains" ] && [[ $body == *$bodynotcontains* ]]; then
-  echo "RERUNNING"
   sleep 1
   doCheck
 fi
