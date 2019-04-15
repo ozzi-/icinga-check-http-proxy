@@ -173,23 +173,24 @@ doCheck() {
   if [ -z "$useragent" ]; then
     if [ -z "$client_certificate" ]; then
       #execute and capture execution time and return status of wget
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url)
+      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} $url 2>&1)
       status=$?
     elif [ -n "$client_certificate" ]; then
       #execute and capture execution time and return status of wget with client certificate
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url)
+      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} --certificate=$client_certificate $url 2>&1)
       status=$?
     fi
   else
     if [ -n "$client_certificate" ]; then
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} --certificate=$client_certificate $url --header="User-Agent: $useragent")
+      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} --certificate=$client_certificate $url --header="User-Agent: $useragent" 2>&1)
       status=$?
     else
       #execute with fake user agent and capture execution time and return status of wget
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --bind-address=${bindaddress} $url --header="User-Agent: $useragent")
+      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} $url --header="User-Agent: $useragent" 2>&1)
       status=$?
     fi
   fi
+  responsecode=$(echo "$body" | grep "^  HTTP\/[1-2]\.[0-9]" | tail -1 | grep "[1-9][0-9][0-9]" -o)
   end=$(echo $(($(date +%s%N)/1000000)))
 }
 
@@ -201,16 +202,18 @@ if [ $status -eq 0 ] && [ -n "$bodynotcontains" ] && [[ $body == *$bodynotcontai
   doCheck
 fi
 
+
 #decide output by return code
 if [ $status -eq 0 ] ; then
   timeoutms=$(($timeout * 1000))
+  duration=$((end - start))
   if [ -n "$bodycontains" ]; then
     if [[ ! $body == *$bodycontains* ]]; then
-      echo "${header} NOK: body does not contain '${bodycontains}'|time=$((end - start))ms;${warning};${critical};0;$timeoutms"
+      echo "${header} NOK: body does not contain '${bodycontains}' '$responsecode' |time=$durationms;${warning};${critical};0;$timeoutms"
       exit 2
     fi
   fi
-  echo "${header} $(checkTime $((end - start))): $((end - start))ms - ${url} |time=$((end - start))ms;${warning};${critical};0;$timeoutms"
+  echo "${header} $(checkTime $duration): $durationms - ${url} '$responsecode' |time=$durationms;${warning};${critical};0;$timeoutms"
   getStatus $((end - start))
   exit $?
 else
@@ -237,7 +240,7 @@ else
       echo "${header} CRITICAL: Protocol errors ($status) - ${url}"
       ;;
     8)
-      echo "${header} CRITICAL: Server issued an error response ($status) - ${url}"
+      echo "${header} CRITICAL: Server issued an error response '$responsecode'  ($status) - ${url}"
       ;;
     *)
       echo "${header} UNKNOWN: $status - ${url}"
