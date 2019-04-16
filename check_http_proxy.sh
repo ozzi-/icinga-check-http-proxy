@@ -209,11 +209,11 @@ if [ $status -eq 0 ] ; then
   duration=$((end - start))
   if [ -n "$bodycontains" ]; then
     if [[ ! $body == *$bodycontains* ]]; then
-      echo "${header} NOK: body does not contain '${bodycontains}' '$responsecode' |time=$durationms;${warning};${critical};0;$timeoutms"
+      echo "${header} NOK: body does not contain '${bodycontains}' '$responsecode' |time=${duration}ms;${warning};${critical};0;$timeoutms"
       exit 2
     fi
   fi
-  echo "${header} $(checkTime $duration): $durationms - ${url} '$responsecode' |time=$durationms;${warning};${critical};0;$timeoutms"
+  echo "${header} $(checkTime $duration): ${duration}ms - ${url} '$responsecode' |time=${duration}ms;${warning};${critical};0;$timeoutms"
   getStatus $((end - start))
   exit $?
 else
