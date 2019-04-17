@@ -17,6 +17,7 @@ if [ $? -ne 0 ]; then
   exit 3
 fi
 
+
 # Default Values
 ssl=""
 useragent=""
@@ -30,6 +31,7 @@ warning=700
 critical=2000
 certificate=""
 bindaddress=""
+cookiejar=""
 
 #set system proxy from environment
 getProxy() {
@@ -57,7 +59,8 @@ usage() {
   -n TRIES              Number of times to try (default: 1)
   -t TIMEOUT            Amount of time to wait in seconds (default: 8)
   -C CERTIFICATE        Client certificate stored in file location (PEM AND DER file types allowed)
-  -b IP                 Bind ip address used by wget (default: primary system address)'''
+  -b IP                 Bind ip address used by wget (default: primary system address)
+  -J COOKIE JAR         Set cookie jar path to enable cookie support'''
 }
 
 # Check which threshold was reached
@@ -84,7 +87,7 @@ getStatus() {
 
 #main
 #get options
-while getopts "c:p:s:a:w:u:P:H:n:t:C:b:B:N:" opt; do
+while getopts "c:p:s:a:w:u:P:H:n:t:C:b:B:N:J:" opt; do
   case $opt in
     c)
       critical=$OPTARG
@@ -128,6 +131,9 @@ while getopts "c:p:s:a:w:u:P:H:n:t:C:b:B:N:" opt; do
     N)
       bodynotcontains=$OPTARG
       ;;
+    J)
+      cookiejar=$OPTARG
+      ;;
     *)
       usage
       exit 3
@@ -143,6 +149,15 @@ if [ -z "$host" ] || [ $# -eq 0 ]; then
   echo "Error: host is required"
   usage
   exit 3
+fi
+
+cookiearg=""
+if [ ! -z "$cookiejar" ]; then
+  if [ ! -w $cookiejar ]; then
+    echo "Error: cannot write to $cookiejar"
+    exit 3
+  fi
+  cookiearg=" --keep-session-cookies --save-cookies $cookiejar --load-cookies $cookiejar "
 fi
 
 #set proxy from environment if available and no proxy option is given
@@ -168,34 +183,23 @@ else
   url="${url_prefix}${host}:${port}${url}"
 fi
 
+if [ ! -z "$client_certificate" ]; then
+  certificatearg=" --certificate=$client_certificate "
+fi
+
+if [ ! -z "$useragent" ]; then
+  useragentarg=" --header=\"User-Agent: $useragent\" "
+fi
+
 doCheck() {
   start=$(echo $(($(date +%s%N)/1000000)))
-  if [ -z "$useragent" ]; then
-    if [ -z "$client_certificate" ]; then
-      #execute and capture execution time and return status of wget
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} $url 2>&1)
-      status=$?
-    elif [ -n "$client_certificate" ]; then
-      #execute and capture execution time and return status of wget with client certificate
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} --certificate=$client_certificate $url 2>&1)
-      status=$?
-    fi
-  else
-    if [ -n "$client_certificate" ]; then
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} --certificate=$client_certificate $url --header="User-Agent: $useragent" 2>&1)
-      status=$?
-    else
-      #execute with fake user agent and capture execution time and return status of wget
-      body=$($wget -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} $url --header="User-Agent: $useragent" 2>&1)
-      status=$?
-    fi
-  fi
+  body=$(eval $wget $cookiearg -t $times --timeout $timeout -qO- -e $proxy_cmd --server-response --bind-address=${bindaddress} $certificatearg  $useragentarg $url 2>&1)
+  status=$?
   responsecode=$(echo "$body" | grep "^  HTTP\/[1-2]\.[0-9]" | tail -1 | grep "[1-9][0-9][0-9]" -o)
   end=$(echo $(($(date +%s%N)/1000000)))
 }
 
 doCheck
-
 #decide to rerun if bodynotcontains is contained
 if [ $status -eq 0 ] && [ -n "$bodynotcontains" ] && [[ $body == *$bodynotcontains* ]]; then
   sleep 1
