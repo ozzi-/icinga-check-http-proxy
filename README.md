@@ -27,7 +27,8 @@ Usage: check_http_proxy [OPTIONS]
   -n TRIES              Number of times to try (default: 1)
   -t TIMEOUT            Amount of time to wait in seconds (default: 8)
   -C CERTIFICATE        Client certificate stored in file location (PEM AND DER file types allowed)
-  -b IP                 Bind ip address used by wget (default: primary system address)'''
+  -b IP                 Bind ip address used by wget (default: primary system address)
+  -J COOKIE JAR         Set cookie jar path to enable cookie support
 ```
 
 ### Icinga
